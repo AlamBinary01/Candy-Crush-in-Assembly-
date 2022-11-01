@@ -1,0 +1,2072 @@
+INCLUDE IRVINE32.INC
+CONVERTNUMTOSTR PROTO, NUM:WORD
+.DATA
+	;/////////////////// MENU SCREEN VARABLES AND STRINGS ////////////////////////
+	MENUINNERBOARDER BYTE "<<===========================================================================>>",0
+
+	;MENUINNERBOARDER BYTE "//////////////////////////////////////////////////////////////////////////////",0
+	;MENUOUTTERBOARDER BYTE "------------------------------------------------------------------------------",0
+	MENUOPTION BYTE "PLEASE SELECT AND APPROPRIATE OPTION FROM MENU PROVIDED!",0
+	MENUOPTION1 BYTE "PRESS 1 ===>> EASY",0
+	MENUOPTION2 BYTE "PRESS 2 ===>> MEDIUM",0
+	MENUOPTION3 BYTE "PRESS 3 ===>> HARD",0
+	MENUOPTION4 BYTE "PRESS 4 ===>> EXIT",0
+	MENUOPTION5 BYTE "SELECTED OPTION: ",0
+	LEVELNUMBER DWORD ?
+	;///////////////////////////////////////////////////////////////////
+
+	INPUTSTATEMENT BYTE "INDEX : [",0
+	OPENINGBRACKET BYTE "[",0
+	CLOSINGBRACKET BYTE "]",0
+	
+	;///////////////////// FILE HANDLING VARIABLES /////////////////////////////
+	FILENAME BYTE "OUTPUT.txt",0
+	FILEHANDLE HANDLE ?
+	BYTEWRITTEN DWORD ?
+	NAMEINPUT BYTE "ENTER THE NAME OF PLAYER : ",0
+	LEVEL1STATE BYTE "LEVEL 1 : ",0
+	LEVEL2STATE BYTE "LEVEL 2 : ",0
+	LEVEL3STATE BYTE "LEVEL 3 : ",0
+	HIGHSCORESTATE BYTE "HIGHEST SCORE : ",0
+	HIGHSCORE WORD ?
+	USERNAME BYTE 30 DUP(0)
+	USERNAMECHAR DWORD ?
+	NUMSTR BYTE 3 DUP ("0")
+	RETURNADDRESS DWORD ?
+	ENDLINE BYTE 0DH,0AH
+	;//////////////////////////////////////////////////////////////////////////
+
+	MOVEMENT BYTE "SWAP WITH : [",0
+	INVALIDINPUT BYTE "INVALID MOVE!",0
+	SCORE_D BYTE "SCORE   :  ",0
+	MOVES_D BYTE "MOVES   :  ",0
+	
+	INSTRUCTION1 BYTE "      INSTRUCTIONS     ",0
+	INSTRUCTION2 BYTE " MOVE LEFT   PRESS [A] ",0
+	INSTRUCTION3 BYTE " MOVE RIGHT  PRESS [D] ",0
+	INSTRUCTION4 BYTE " MOVE UP     PRESS [W] ",0
+	INSTRUCTION5 BYTE " MOVE DOWN   PRESS [S] ",0
+	;///////////////////////////////////////////////////////////////////
+
+	SCREENBACKGROUND BYTE "                                                                                                                                                    ",0
+	BOARDBACKGROUND BYTE "                                                                                   ",0
+	INPUTBACKGROUND BYTE "                            ",0
+	INSTRUCTIONBACKGROUND BYTE      "                       ",0
+	;///////////////////////////////////////////////////////////////////
+
+	LEVEL_1_3_TABLE DWORD 100 DUP(0)
+	LEVEL_1_3_ROWSIZE = ($-LEVEL_1_3_TABLE)/10
+	
+	
+	LEVEL_2_TABLE DWORD 81 DUP(0)
+	ROWSIZELEVEL_2 = ($-LEVEL_2_TABLE)/9
+	Y BYTE 0
+	X BYTE 0
+	I DWORD 0
+	J DWORD 0
+	I1 DWORD 0
+	J1 DWORD 0
+	FOUND DWORD ?
+	SCORE WORD 3 DUP(0)
+	MOVES BYTE ?
+	HOLDVALUE DWORD ?
+.CODE
+;______________________________________________________________________________
+MAIN PROC
+	CALL LEVELMENU
+	CALL DATASVAING
+EXIT
+MAIN ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+SCREENBACKSHADE PROC
+; RECEIVE : SCREENBACKGROUND 
+; DISCRIPTION : TO MAKE A SCREEN OF DESIRED COLOR
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	MOV EAX, WHITE +(RED*16)
+	MOV EDX,OFFSET SCREENBACKGROUND
+	CALL SETTEXTCOLOR   
+	MOV ECX,34
+	L1:
+		CALL WRITESTRING
+		CALL CRLF
+	LOOP L1
+RET;
+SCREENBACKSHADE ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVELMENU PROC
+; RECEIVE : MULTIPLE STRINGS 
+; DISCRIPTION : TO MAKE MENU OF LEVELS FOR THE USER TO START WITH
+; RETURN : LEVEL NUMBER PROVIDED BY THE USER
+;------------------------------------------------------------------------------
+	POP RETURNADDRESS
+	CALL SCREENBACKSHADE
+	MOV DL,30
+	MOV DH,3
+	CALL GOTOXY
+	MOV EDX,OFFSET NAMEINPUT
+	CALL WRITESTRING
+
+	MOV EAX, YELLOW + (RED*16)
+	CALL SETTEXTCOLOR 
+
+	MOV EDX,OFFSET USERNAME
+	MOV ECX,0
+	MOV ECX,LENGTHOF USERNAME
+
+	CALL READSTRING
+	MOV USERNAMECHAR,EAX
+CONTINUE:
+	MOV MOVES,3
+	MOV EAX, WHITE + (RED*16)
+	CALL SETTEXTCOLOR 
+	MOV DL,30
+	MOV DH,4
+	CALL GOTOXY
+	;MOV EDX,OFFSET MENUOUTTERBOARDER
+	;CALL WRITESTRING
+
+	MOV DL,30
+	MOV DH,5
+	CALL GOTOXY
+	MOV EDX,OFFSET MENUINNERBOARDER
+	CALL WRITESTRING
+	
+	MOV DL,41
+	MOV DH,7
+	CALL GOTOXY
+	MOV EDX,OFFSET MENUOPTION
+	CALL WRITESTRING
+
+	MOV DL,46
+	MOV DH,9
+	CALL GOTOXY
+	MOV EDX,OFFSET MENUOPTION1
+	CALL WRITESTRING
+
+	MOV DL,46
+	MOV DH,10
+	CALL GOTOXY
+	MOV EDX,OFFSET MENUOPTION2
+	CALL WRITESTRING
+
+	MOV DL,46
+	MOV DH,11
+	CALL GOTOXY
+	MOV EDX,OFFSET MENUOPTION3
+	CALL WRITESTRING
+
+	MOV DL,46
+	MOV DH,12
+	CALL GOTOXY
+	MOV EDX,OFFSET MENUOPTION4
+	CALL WRITESTRING
+
+	MOV DL,30
+	MOV DH,15
+	CALL GOTOXY
+	MOV EDX,OFFSET MENUINNERBOARDER
+	CALL WRITESTRING
+
+	MOV DL,30
+	MOV DH,16
+	CALL GOTOXY
+	;MOV EDX,OFFSET MENUOUTTERBOARDER
+	;CALL WRITESTRING
+
+	MOV DL,46
+	MOV DH,18	
+	INPUTAGAIN:
+		PUSH EDX	;IF FIRST INPUT IS INVLAID TO PRINT THE STATEMET AT NEW LOCATION
+		CALL GOTOXY
+		MOV EDX,OFFSET MENUOPTION5
+		CALL WRITESTRING
+		
+		CALL READCHAR
+		CALL WRITECHAR
+
+		MOV AH,0	;AH HOLDS THE ASCII OF CHAR IN HEX
+		SUB EAX,30H	;MAKING THE CHAR A DECIMAL NUMBER
+
+		CMP EAX,1	;IF INPUT IS LESS THAN 1
+		JB INVALID
+		CMP EAX,4	;IF INPUT IS GREATER THEN 3
+		JA INVALID
+					;TAKE INPUT AGAIN ELSE 
+		MOV LEVELNUMBER,EAX
+		CALL CLRSCR
+		CMP EAX,2
+		JE LEVEL2
+		CMP EAX,4
+		JE TERMINATE
+		CALL LEVEL_1_3_GAMEPLAY
+		MOV EAX,1000
+		CALL DELAY
+	JMP DONE
+		LEVEL2:
+		CALL LEVEL_2_GAMEPLAY
+		MOV EAX,1000
+		CALL DELAY
+		JMP DONE
+	INVALID:
+		POP EDX
+		ADD DH,2
+	JMP INPUTAGAIN
+
+	DONE:
+	CALL CLRSCR
+	CALL SCREENBACKSHADE
+	JMP CONTINUE
+	TERMINATE:
+	PUSH RETURNADDRESS
+RET
+LEVELMENU ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_BORADBACKGROUND PROC
+; RECEIVE : LEVEL_1_3_BOARDBACKGROUND
+; DISCRIPTION :TO MAKE AND DISPLAY A BIG BLUE BOX 
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	MOV EAX, WHITE + (LIGHTBLUE*16)
+	CALL SETTEXTCOLOR   
+	MOV ECX,31
+	L1:
+	MOV DL,31
+	MOV DH,CL
+	CALL GOTOXY
+	MOV EDX,OFFSET BOARDBACKGROUND
+	CALL WRITESTRING
+	LOOP L1
+RET
+LEVEL_1_3_BORADBACKGROUND ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;-------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+INSTRUCTIONSCREEN PROC USES ECX EBX EAX
+; RECEIVE : ALL INSTRUCTIONS STRING
+; DISCRIPTION : TO DISPLAY INSTRUCTIONS
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	MOV EAX, WHITE + (BLACK*16)
+	CALL SETTEXTCOLOR   
+	MOV ECX,17
+	MOV DH,5
+	L1:
+		MOV DL,4
+		CALL GOTOXY
+
+		PUSH EDX
+		MOV EDX,OFFSET INSTRUCTIONBACKGROUND
+		CALL WRITESTRING
+		POP EDX
+
+		INC DH
+	LOOP L1
+
+	MOV DL,4
+	MOV DH,7
+	CALL GOTOXY
+	MOV EDX,OFFSET INSTRUCTION1
+	CALL WRITESTRING
+
+	MOV DL,4
+	MOV DH,10
+	CALL GOTOXY
+	MOV EDX,OFFSET INSTRUCTION2
+	CALL WRITESTRING
+
+	MOV DL,4
+	MOV DH,13
+	CALL GOTOXY
+	MOV EDX,OFFSET INSTRUCTION3
+	CALL WRITESTRING
+
+	MOV DL,4
+	MOV DH,16
+	CALL GOTOXY
+	MOV EDX,OFFSET INSTRUCTION4
+	CALL WRITESTRING
+
+	MOV DL,4
+	MOV DH,19
+	CALL GOTOXY
+	MOV EDX,OFFSET INSTRUCTION5
+	CALL WRITESTRING
+
+RET
+INSTRUCTIONSCREEN ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_INPUT PROC USES ECX EBX EAX
+; RECEIVE : INPUTBACKGROUND 
+; DISCRIPTION : TO MAKE A BOX TO SHOW THE INDEX PROVIDED AND GET ITS VALUE
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+ 
+INPUTAGAIN:
+	CALL LEVEL_1_3_BOARDTILES
+	CALL LEVEL_1_3_BOARDFILL
+	MOV EAX, WHITE + (BLACK*16)
+	CALL SETTEXTCOLOR
+	MOV ECX,7
+	MOV DH,5
+	L1:
+		MOV DL,117
+		CALL GOTOXY
+		PUSH EDX
+		MOV EDX,OFFSET INPUTBACKGROUND
+		CALL WRITESTRING
+		POP EDX
+		INC DH
+	LOOP L1
+
+	MOV DL ,124	;SETTING CURSOR FOR INPUT STATEMENT
+	MOV DH ,7
+	CALL GOTOXY
+	MOV EDX,OFFSET INPUTSTATEMENT
+	CALL WRITESTRING
+
+	MOV EAX,0
+	CALL READCHAR
+	CALL WRITECHAR
+	MOV AH,0	;AH HOLDS THE ASCII OF CHAR IN HEX
+	SUB EAX,30H	;MAKING THE CHAR A DECIMAL NUMBER
+	CMP EAX,0
+	JL INVALIDINDEX
+	CMP EAX,9
+	JG INVALIDINDEX
+	MOV I,EAX
+	MOV I1,EAX
+	MOV EDX,OFFSET CLOSINGBRACKET
+	CALL WRITESTRING
+
+	MOV EDX,OFFSET OPENINGBRACKET
+	CALL WRITESTRING
+
+	CALL READCHAR
+	CALL WRITECHAR
+
+	MOV AH,0	;AH HOLDS THE ASCII OF CHAR IN HEX
+	SUB EAX,30H	;MAKING THE CHAR A DECIMAL NUMBER
+
+	CMP EAX,0
+	JL INVALIDINDEX
+
+	CMP EAX,9
+	JG INVALIDINDEX
+
+	MOV J,EAX
+	MOV J1,EAX
+
+	MOV EDX,OFFSET CLOSINGBRACKET
+	CALL WRITESTRING
+
+	CALL LEVEL_1_3_GETINDEX
+	MOV HOLDVALUE,EAX
+
+	MOV DL ,123	;SETTING CURSOR FOR INPUT STATEMENT
+	MOV DH ,9
+	CALL GOTOXY
+	MOV EDX,OFFSET MOVEMENT
+	CALL WRITESTRING
+	
+	MOV EAX,0
+	CALL READCHAR
+	CALL WRITECHAR
+
+	MOV EDX,OFFSET CLOSINGBRACKET
+	CALL WRITESTRING
+
+	CMP AL,"W"
+	JE UPSWAP
+	CMP AL,"S"
+	JE DOWNSWAP
+	CMP AL,"D"
+	JE RIGHTSWAP
+	CMP AL,"A"
+	JE LEFTSWAP
+	JMP INVALIDINDEX
+	UPSWAP:
+	SUB I,1
+	CMP I,0
+	JL INVALIDINDEX
+	CMP I,9
+	JG INVALIDINDEX
+	JMP DONE
+	DOWNSWAP:
+	ADD I,1
+	CMP I,0
+	JL INVALIDINDEX
+	CMP I,9
+	JG INVALIDINDEX
+	JMP DONE
+	RIGHTSWAP:
+	SUB J,1
+	CMP J,0
+	JL INVALIDINDEX
+	CMP J,9
+	JG INVALIDINDEX
+	JMP DONE
+	LEFTSWAP:
+	ADD J,1
+	CMP J,0
+	JL INVALIDINDEX
+	CMP J,9
+	JG INVALIDINDEX
+	JMP DONE
+
+	INVALIDINDEX:
+	MOV DL ,124	;SETTING CURSOR FOR INPUT STATEMENT
+	MOV DH ,8
+	CALL GOTOXY
+	MOV EDX,OFFSET INVALIDINPUT
+	CALL WRITESTRING
+	MOV EAX,1000
+	CALL DELAY
+	JMP INPUTAGAIN
+DONE:
+RET
+LEVEL_1_3_INPUT ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+SCORESCREEN PROC USES ECX EBX EAX
+; RECEIVE : SCORE
+; DISCRIPTION : MAKE A BOX TO SHOW THE SCORE TO THE PLAYER
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	MOV EAX, WHITE + (BLACK*16)
+	CALL SETTEXTCOLOR 
+	MOV ECX,5
+	MOV DH,18
+	L1:
+		MOV DL,117
+		CALL GOTOXY
+		PUSH EDX
+		MOV EDX,OFFSET INPUTBACKGROUND
+		CALL WRITESTRING
+		POP EDX
+		INC DH
+	LOOP L1
+
+	MOV DL,123
+	MOV DH, 19
+	CALL GOTOXY
+
+	MOV EDX,OFFSET SCORE_D
+	CALL WRITESTRING
+
+	PUSH EAX
+	MOV EAX,LEVELNUMBER
+	MOV BL,2
+	MUL BL
+	SUB EAX,TYPE SCORE
+	MOV ESI,EAX
+	MOVZX EAX,SCORE[ESI]
+	CALL WRITEDEC
+	POP EAX
+
+	MOV DL,123
+	MOV DH, 21
+	CALL GOTOXY
+
+	MOV EDX,OFFSET MOVES_D
+	CALL WRITESTRING
+
+
+	MOVZX EAX,MOVES
+	CALL WRITEDEC
+RET
+SCORESCREEN ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_BOARDTILES PROC
+; RECEIVE : X,Y
+; DISCRIPTION : TO GENERATE A BOARD OF 100 BRICKS
+; DETAIL : IT CALL TILEGENERATOR PROCEDURE AND MAKE 100 TILES
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+  	MOV Y,2
+	MOV ECX,10
+L1:
+	PUSH ECX
+	MOV X,34
+	MOV ECX,10
+	L2:
+		PUSH ECX
+		CALL TILEGENERATOR
+		ADD X,8
+		POP ECX
+		LOOP L2
+	ADD Y,3
+	POP ECX
+	LOOP L1 
+
+RET;
+LEVEL_1_3_BOARDTILES ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+TILEGENERATOR PROC
+; RECEIVE :X ,Y
+; DISCRIPTION : TO GENERATE A SINGLE TILE
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	MOV EAX, WHITE + (WHITE*16)
+	CALL SETTEXTCOLOR
+	MOV DL,X
+    MOV DH,Y
+    MOV ECX, 2
+    L1:
+	MOV DL,X
+	MOV EBX,ECX
+	MOV ECX, 5
+	L2:
+	CALL GOTOXY
+	MOV AL,' '
+	CALL WRITECHAR
+	INC DL
+	LOOP L2
+	MOV ECX,EBX
+	INC DH
+	LOOP L1
+RET;
+TILEGENERATOR ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_BOARDFILL PROC
+; RECEIVE : LEVEL_1_3_TABLE
+; DISCRIPTION : TO FILL THE BORAD WITH NUMBERS
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+    MOV EAX, BLACK + (WHITE*16)
+	MOV ESI,OFFSET LEVEL_1_3_TABLE
+	CALL SETTEXTCOLOR
+
+    MOV DH,2
+    MOV ECX, 10
+    L1:
+		MOV DL,36
+		PUSH ECX
+		MOV ECX, 10
+		L2:
+			CALL GOTOXY
+
+			MOV EAX,[ESI]
+			CMP EAX,5
+			JG BOMB
+
+			PUSH EAX
+			MOV EAX,BLACK + (WHITE*16)
+			CALL SETTEXTCOLOR
+
+			POP EAX
+			CALL WRITEDEC
+
+			JMP NEXT
+			BOMB:
+
+			PUSH EAX
+			MOV EAX,RED + (WHITE*16)
+			CALL SETTEXTCOLOR
+
+			POP EAX
+			CALL WRITECHAR
+			NEXT:
+	
+			ADD ESI,TYPE LEVEL_1_3_TABLE
+			ADD DL,8
+		LOOP L2
+		POP ECX
+		ADD DH,3
+	LOOP L1
+RET
+LEVEL_1_3_BOARDFILL ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+SELECTEDTILE PROC
+; RECEIVE :X ,Y
+; DISCRIPTION : TO GENERATE A COLOR CHANGED BOX SHOWING SELECTION IN LEVEL_1_3_TABLE
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	MOV EAX, WHITE + (BLACK*16)
+	CALL SETTEXTCOLOR
+
+	MOV Y,2
+	MOV EAX,I
+	MOV BL,3
+	MUL BL
+	ADD Y,AL
+
+	MOV X,34
+	MOV EAX,J
+	MOV BL,8
+	MUL BL
+	ADD X,AL
+
+	MOV DH,Y
+	MOV ECX, 2
+    L1:
+		MOV DL,X
+		PUSH ECX
+		MOV ECX, 5
+		L2:
+			CALL GOTOXY
+			MOV AL,' '
+			CALL WRITECHAR
+			INC DL
+		LOOP L2
+	POP ECX
+	INC DH
+	LOOP L1
+	RET;
+SELECTEDTILE ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_GETINDEX PROC USES  ESI EBX
+; RECEIVE :I ,J
+; DISCRIPTION : TO GET THE VALUE AT THE PROVIDED INDEX 
+; RETURN : EAX
+;------------------------------------------------------------------------------
+		CALL SELECTEDTILE
+
+        MOV EAX, I
+        MOV ESI, J
+        MOV EBX, LEVEL_1_3_ROWSIZE
+        MUL EBX
+        MOV EBX, EAX
+        MOV EAX, LEVEL_1_3_TABLE[EBX + ESI * TYPE LEVEL_1_3_TABLE]
+
+		ADD X,2
+		MOV DL,X
+		MOV DH,Y
+		CALL GOTOXY
+
+		CMP AL,5
+		JG BOMB
+			CALL WRITEDEC
+			JMP NEXT
+		BOMB:
+			CALL WRITECHAR
+		NEXT:
+RET
+LEVEL_1_3_GETINDEX ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_SWAP PROC USES ESI EBX
+; RECEIVE :I ,J
+; DISCRIPTION : TO GET THE VALUE AT THE PROVIDED INDEX AND SWAP IT WITH
+;				PREVIOUSLY SELECTED VALUE
+; RETURN : EAX
+;------------------------------------------------------------------------------
+	CALL LEVEL_1_3_GETINDEX
+
+	PUSH EAX
+	MOV EAX, 1000
+	CALL DELAY
+	POP EAX
+
+
+	CMP EAX,'X'
+		JE NOSWAPFOUND
+	XCHG EAX,HOLDVALUE
+	CMP EAX,'X'
+		JE NOSWAPFOUND
+
+	CMP EAX,'B'
+		JE BOMBFOUND
+	XCHG EAX,HOLDVALUE
+	CMP EAX,'B'
+		JE BOMBFOUND
+	
+	XCHG EAX,HOLDVALUE
+	PUSH EAX
+	MOV EAX, I
+    MOV ESI, J
+    MOV EBX, LEVEL_1_3_ROWSIZE
+    MUL EBX
+    MOV EBX, EAX
+	POP EAX
+    MOV LEVEL_1_3_TABLE[EBX + ESI * TYPE LEVEL_1_3_TABLE],EAX
+
+	MOV EAX,HOLDVALUE
+
+	PUSH EAX
+	MOV EAX, I1
+    MOV ESI, J1
+    MOV EBX, LEVEL_1_3_ROWSIZE
+    MUL EBX
+    MOV EBX, EAX
+	POP EAX
+    MOV LEVEL_1_3_TABLE[EBX + ESI * TYPE LEVEL_1_3_TABLE],EAX
+
+	JMP DONE
+	BOMBFOUND:
+
+		PUSH EAX
+		MOV EAX,1000
+		CALL DELAY
+		POP EAX
+
+		CALL LEVEL_1_3_BOMBBARDMENT
+		JMP DONE
+	NOSWAPFOUND:
+	INC MOVES
+	DONE:
+	CALL LEVEL_1_3_BOARDTILES
+	CALL LEVEL_1_3_BOARDFILL
+RET
+LEVEL_1_3_SWAP ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_PAIRCHECK PROC
+; RECEIVE : LEVEL_1_3_TABLE
+; DISCRIPTION : TO CHECK THE WHOLE LEVEL_1_3_TABLE FOR ALL POSSIBLE COMBINATIONS
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+CONTINUE:	;UNTIL NO COMBINATION EXIST
+
+	MOV FOUND,0	;COMBINATION IS FOUND
+
+	MOV EAX,0
+	MOV EBX,0
+	MOV EDI,0
+	MOV EBP,0
+	MOV ECX,0
+	MOV ESI,0
+
+	WHOLELEVEL_1_3_TABLE:
+	CMP ESI, 396		;TRAVERSING THE WHOLE LEVEL_1_3_TABLE FOR COMBINATIONS
+	JG COMPLETED
+
+	MOV EAX,LEVEL_1_3_TABLE[ESI]
+	MOV EBP,LEVEL_1_3_TABLE[ESI+4]
+	MOV EDI,LEVEL_1_3_TABLE[ESI+8]
+
+	CMP EAX,EBP
+	JNE CHECKCOLUMN
+	CMP EAX,EDI
+	JNE CHECKCOLUMN
+
+	MOV ECX,40
+	MOV EAX,0
+	MOV EDX,0	;FOR DIVISION PURPOSE
+
+	MOV EAX,ESI
+	DIV ECX
+	MOV ECX, 28
+	CMP EDX,ECX	;NOT GOING OUT OF THE LEVEL_1_3_TABLE ROW WISE
+	;EDX HOLDS THE REMAINDER
+	JG OUTOFLEVEL_1_3_TABLE
+
+	MOV LEVEL_1_3_TABLE[ESI],0
+	MOV LEVEL_1_3_TABLE[ESI+4],0
+	MOV LEVEL_1_3_TABLE[ESI+8],0
+
+	PUSH ESI
+	CALL LEVEL_1_3_BOARDFILL
+	PUSH EAX
+	MOV EAX,LEVELNUMBER
+	MOV BL,2
+	MUL BL
+	SUB EAX,TYPE SCORE
+	ADD SCORE[EAX],3
+	POP EAX
+	POP ESI
+	MOV FOUND,1
+
+	OUTOFLEVEL_1_3_TABLE:
+	ADD ESI,TYPE LEVEL_1_3_TABLE
+	JMP WHOLELEVEL_1_3_TABLE
+
+	CHECKCOLUMN:
+	MOV EAX,LEVEL_1_3_TABLE[ESI]
+	MOV EBP,LEVEL_1_3_TABLE[ESI+40]
+	MOV EDI,LEVEL_1_3_TABLE[ESI+80]
+	
+	CMP EAX,EBP
+	JNE NOPAIR
+	CMP EAX,EDI
+	JNE NOPAIR
+
+	MOV LEVEL_1_3_TABLE[ESI],0
+	MOV LEVEL_1_3_TABLE[ESI+40],0
+	MOV LEVEL_1_3_TABLE[ESI+80],0
+
+	PUSH ESI
+	CALL LEVEL_1_3_BOARDFILL
+	POP ESI
+	PUSH EAX
+	MOV EAX,LEVELNUMBER
+	MOV BL,2
+	MUL BL
+	SUB EAX,TYPE SCORE
+	ADD SCORE[EAX],3
+	POP EAX
+	MOV FOUND,1
+	ADD ESI,TYPE LEVEL_1_3_TABLE
+	JMP WHOLELEVEL_1_3_TABLE
+
+	NOPAIR:
+	ADD  ESI,TYPE LEVEL_1_3_TABLE
+	JMP WHOLELEVEL_1_3_TABLE
+
+	COMPLETED:
+
+	MOV EAX ,1000
+	CALL DELAY
+
+	CALL LEVEL_1_3_MOVEDOWN
+	CALL LEVEL_1_3_BOARDFILL
+
+	MOV EAX ,1000
+	CALL DELAY
+
+	CALL LEVEL_1_3_GENERATENEWNUMBERS
+	CALL LEVEL_1_3_BOARDFILL
+
+	MOV EAX,FOUND
+	CMP EAX,0
+
+	JNE CONTINUE
+RET
+LEVEL_1_3_PAIRCHECK ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_GENERATENEWNUMBERS PROC
+; RECEIVE : LEVEL_1_3_TABLE
+; DISCRIPTION : TO TO REPLACE THE EMPTY TILES WITH NEW NUMBERS
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	MOV ESI, OFFSET LEVEL_1_3_TABLE
+	MOV ECX,10
+	L1:
+		PUSH ECX
+		MOV ECX,10
+		L2:
+			MOV EAX,5
+			CALL RANDOMRANGE
+			ADD EAX,1
+			MOV EBX,[ESI]
+			CMP EBX,0
+			JNE NEXT
+				MOV [ESI],EAX
+			NEXT:
+			ADD ESI,TYPE LEVEL_1_3_TABLE
+		LOOP L2
+	POP ECX
+	LOOP L1
+		
+RET
+LEVEL_1_3_GENERATENEWNUMBERS ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_TABLE_INITIALIZATION PROC
+; RECEIVE : LEVEL_1_3_TABLE
+; DISCRIPTION : TO INITIALIZE THE LEVEL_1_3_TABLE WITH RANDOM VALUE FROM 1 TO 5
+; RETURN : LEVEL_1_3_TABLE
+;------------------------------------------------------------------------------
+	PUSH ECX
+	PUSH EAX
+	MOV ESI, OFFSET LEVEL_1_3_TABLE
+	MOV ECX,10
+	L1:
+		PUSH ECX
+		MOV ECX,10
+		L2:
+			MOV EAX,5
+			CALL RANDOMRANGE
+			ADD EAX,1
+			MOV [ESI],EAX
+			ADD ESI,TYPE LEVEL_1_3_TABLE
+		LOOP L2
+	POP ECX
+	LOOP L1
+
+	MOV EBX,LEVELNUMBER
+	CMP EBX,3
+	JNE XSKIPPED
+	MOV ECX, 20
+	L3:
+		MOV EAX,100
+		CALL RANDOMRANGE
+		MOV EBX,TYPE LEVEL_1_3_TABLE
+		MUL EBX
+		CMP EAX,36
+		MOV LEVEL_1_3_TABLE[EAX],'X'
+	LOOP L3
+
+	XSKIPPED:
+	;GENEARATING BOMBS AT RANDOM INDECES
+	MOV ECX, 7
+	L4:
+		MOV EAX,100
+		CALL RANDOMRANGE
+		MOV EBX,TYPE LEVEL_1_3_TABLE
+		MUL EBX
+		MOV LEVEL_1_3_TABLE[EAX],'B'
+	LOOP L4
+	
+	POP EAX
+	POP ECX
+RET
+LEVEL_1_3_TABLE_INITIALIZATION ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_BOMBBARDMENT PROC
+; RECEIVE : I, J AND LEVEL_1_3_TABLE
+; DISCRIPTION : TO THE ELIMINATE THE VALUE SWAPPED WITH BOMB
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+
+	MOV EAX, I
+    MOV ESI, J
+    MOV EBX, LEVEL_1_3_ROWSIZE
+    MUL EBX
+    MOV EBX, EAX
+    MOV LEVEL_1_3_TABLE[EBX + ESI * TYPE LEVEL_1_3_TABLE],0
+
+	MOV EAX, I1
+    MOV ESI, J1
+    MOV EBX, LEVEL_1_3_ROWSIZE
+    MUL EBX
+    MOV EBX, EAX
+    MOV LEVEL_1_3_TABLE[EBX + ESI * TYPE LEVEL_1_3_TABLE],0
+
+	MOV ESI,OFFSET LEVEL_1_3_TABLE
+    MOV ECX, 10
+    L1:
+		PUSH ECX
+		MOV ECX, 10
+		L2:
+			MOV EAX,HOLDVALUE
+			MOV EBX,[ESI]
+			CMP EAX,EBX
+			JNE SWAPPEDVALUE
+				MOV EBX,0
+				MOV [ESI],EBX
+				MOV EAX,[ESI]
+				PUSH EAX
+				MOV EAX,LEVELNUMBER
+				MOV BL,2
+				MUL BL
+				SUB EAX,TYPE SCORE
+				ADD SCORE[EAX],3
+				POP EAX
+			SWAPPEDVALUE:
+		ADD ESI,TYPE LEVEL_1_3_TABLE
+		LOOP L2
+		POP ECX
+	LOOP L1
+	CALL LEVEL_1_3_MOVEDOWN
+RET
+LEVEL_1_3_BOMBBARDMENT ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_MOVEDOWN PROC USES EAX EBX ECX EDX
+; RECEIVE : LEVEL_1_3_TABLE
+; DISCRIPTION : TO MOVE THE REMOVED PAIRS UP IN THE LEVEL_1_3_TABLE
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+
+	MOV EAX,0
+	MOV EBX,0
+	MOV ECX,0
+	MOV EDX,0
+
+	MOV ESI,396
+	CONTINUE:
+		CMP ESI,40
+	JL CHECKED
+		MOV EAX,LEVEL_1_3_TABLE[ESI]
+		MOV EBX,LEVEL_1_3_TABLE[ESI-40]
+			CMP EAX,0	;NON CONSECUTIVE ZEROS MOVEDOWN
+		JNE MOVEROWS
+			CMP EBX,0
+		JE MOVEROWS	
+			MOV EAX,0
+			MOV EAX,LEVEL_1_3_TABLE[ESI-40]				;SWAPPING
+			CMP EAX,'X'
+			JE ALLOWED
+			MOV LEVEL_1_3_TABLE[ESI-40],0
+			MOV LEVEL_1_3_TABLE[ESI],EAX
+		JMP	DONE
+			ALLOWED:
+			MOV EAX,ESI
+			SUB EAX,40
+			AGAIN1:
+			CMP EAX,40
+			JLE DONE
+			SUB EAX,40
+			CMP LEVEL_1_3_TABLE[EAX],'X'
+		JNE JUMPOUT
+			CMP EAX,40
+			JS OUTJUMP
+		JMP AGAIN1
+		JUMPOUT:
+			MOV EBX,0
+			MOV EBX,LEVEL_1_3_TABLE[EAX]					;SWAPPING
+			MOV LEVEL_1_3_TABLE[ESI],EBX
+			MOV LEVEL_1_3_TABLE[EAX],0
+		JMP DONE
+		MOVEROWS:
+			CMP EAX,0	;NON CONSECUTIVE ZEROS MOVEDOWN
+			JNE DONE
+			CMP EBX,0
+		JNE DONE	;CONSECUTIVE ZEROS MOVEDOWN
+			MOV EAX,ESI
+		AGAIN:
+			SUB EAX,40
+			CMP LEVEL_1_3_TABLE[EAX],0
+		JNE OUTJUMP
+			CMP EAX,40
+			JS OUTJUMP
+		JMP AGAIN
+		OUTJUMP:
+			MOV EBX,0
+			MOV EBX,LEVEL_1_3_TABLE[EAX]	
+			CMP EBX,'X'
+			JE ALLOWED1
+			MOV LEVEL_1_3_TABLE[ESI],EBX
+			MOV LEVEL_1_3_TABLE[EAX],0
+		JMP	DONE
+			ALLOWED1:
+			AGAIN2:
+			SUB EAX,40
+			CMP LEVEL_1_3_TABLE[EAX],'X'
+		JNE JUMPOUT1
+			CMP EAX,40
+			JS OUTJUMP
+		JMP AGAIN2
+		JUMPOUT1:
+		JMP DONE
+			MOV EBX,0
+			MOV EBX,LEVEL_1_3_TABLE[EAX]	
+			MOV LEVEL_1_3_TABLE[ESI],EBX
+			MOV LEVEL_1_3_TABLE[EAX],0
+		DONE:
+			SUB ESI,TYPE LEVEL_1_3_TABLE
+	JMP CONTINUE
+	CHECKED:
+RET
+LEVEL_1_3_MOVEDOWN ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_1_3_GAMEPLAY PROC USES ECX EBX EAX
+; RECEIVE : MOVES
+; DISCRIPTION : TO MAIN GAMEPLAY FUNCTION WILL TAKE INPUT FROM PLAYER
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	CALL INSTRUCTIONSCREEN
+	CALL LEVEL_1_3_BORADBACKGROUND
+	CALL LEVEL_1_3_BOARDTILES
+	CALL LEVEL_1_3_TABLE_INITIALIZATION
+	CALL LEVEL_1_3_PAIRCHECK
+	PUSH EAX
+	MOV EAX,LEVELNUMBER
+	MOV BL,2
+	MUL BL
+	SUB EAX,TYPE SCORE
+	MOV SCORE[EAX],0
+	POP EAX
+	CALL LEVEL_1_3_BOARDFILL
+INPUTAGAIN:
+	CMP MOVES,0
+	JE FINISH
+	CALL SCORESCREEN
+	CALL LEVEL_1_3_INPUT
+	CALL LEVEL_1_3_SWAP
+	CALL LEVEL_1_3_PAIRCHECK
+	CALL LEVEL_1_3_BOARDFILL
+	DEC MOVES
+	JMP INPUTAGAIN
+	FINISH:
+	CALL SCORESCREEN
+RET
+LEVEL_1_3_GAMEPLAY ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_2_GAMEPLAY PROC USES ECX EBX EAX
+; RECEIVE : MOVES
+; DISCRIPTION : TO MAIN GAMEPLAY FUNCTION WILL TAKE INPUT FROM PLAYER
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	CALL INSTRUCTIONSCREEN
+	CALL LEVEL_2_BORADBACKGROUND
+	CALL LEVEL_2_BOARDTILES
+	CALL LEVEL_2_TABLEINITIALIZATION
+	CALL LEVEL_2_PAIRCHECK
+	PUSH EAX
+	MOV EAX,LEVELNUMBER
+	MOV BL,2
+	MUL BL
+	SUB EAX,TYPE SCORE
+	MOV SCORE[EAX],0
+	POP EAX
+	CALL LEVEL_2_BOARDFILL
+INPUTAGAIN:
+	CMP MOVES,0
+	JE FINISH
+	CALL SCORESCREEN
+	CALL LEVEL_2_INPUT
+	CALL LEVEL_2_SWAP
+	CALL LEVEL_2_PAIRCHECK
+	CALL LEVEL_2_BOARDFILL
+	DEC MOVES
+	JMP INPUTAGAIN
+	FINISH:
+	CALL SCORESCREEN
+RET
+LEVEL_2_GAMEPLAY ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_2_BORADBACKGROUND PROC
+; RECEIVE : BOARDBACKGROUND
+; DISCRIPTION :TO MAKE AND DISPLAY A BIG BLUE BOX 
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	MOV EAX, WHITE + (LIGHTBLUE*16)
+	CALL SETTEXTCOLOR   
+	MOV ECX,30
+	L1:
+	MOV DL,31
+	MOV DH,CL
+	CALL GOTOXY
+	MOV EDX,OFFSET BOARDBACKGROUND
+	CALL WRITESTRING
+	LOOP L1
+RET
+LEVEL_2_BORADBACKGROUND ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;-------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_2_BOARDTILES PROC
+; RECEIVE : X,Y
+; DISCRIPTION : TO GENERATE A BOARD OF 100 BRICKS
+; DETAIL : IT CALL TILEGENERATOR PROCEDURE AND MAKE 100 TILES
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+  	MOV Y,3
+	MOV ECX,9
+L1:
+	CMP ECX,0
+	JE DONE
+	MOV I,ECX
+	PUSH ECX
+	MOV X,34
+	MOV ECX,9
+	L2:
+		PUSH ECX
+					CMP I,5 ;IF(ROW==5)
+						JNE NOTMIDDLEROW
+						CMP ECX,6 ;IF COLUMN !<=6
+						JA NOTMIDDLEROW
+						CMP ECX,4 ;IF COLUMN !>=4
+						JB NOTMIDDLEROW
+						JMP NEXT
+
+						NOTMIDDLEROW:	;IF(ROW<=6 && ROW>=4)
+							CMP I,6 ;ROW>=6
+							JA CENTERCOLUMN
+							CMP I,4 ;ROW<=4
+							  ;PRINT BOARD ALL ROWS AND COLUMN
+							JB CENTERCOLUMN
+							BACK:
+							CALL TILEGENERATOR
+							JMP NEXT
+							
+							CENTERCOLUMN:	;ELSE IF (ECX<=6 &&ECX>=4)
+							CMP ECX,6 ;COLUMN>=6
+							JA  NEXT
+							CMP ECX,4 ;COLUMN>=4
+							JB NEXT
+							JMP BACK
+						NEXT:
+		ADD X,9
+		POP ECX
+		LOOP L2
+	ADD Y,3
+	POP ECX
+	DEC ECX
+	JMP L1 
+	DONE:
+
+RET;
+LEVEL_2_BOARDTILES ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_2_TABLEINITIALIZATION PROC
+; RECEIVE : LEVEL_2_TABLE
+; DISCRIPTION : TO INITIALIZE THE LEVEL_2_TABLE WITH RANDOM VALUE FROM 1 TO 5
+; RETURN : LEVEL_2_TABLE
+;------------------------------------------------------------------------------
+			MOV ESI ,OFFSET LEVEL_2_TABLE
+			
+			CALL RANDOMIZE
+			MOV ECX,9
+	L1:		
+
+	    	PUSH ECX
+			MOV ECX,9
+						L2:
+						MOV EAX,5
+						CALL RANDOMRANGE
+						ADD EAX,1
+						POP EDX
+						PUSH EDX
+					CMP EDX,5 ;IF(ROW==5)
+						JNE NOTMIDDLEROW
+						CMP ECX,6 ;IF COLUMN !<=6
+						JA NOTMIDDLEROW
+						CMP ECX,4 ;IF COLUMN !>=4
+						JB NOTMIDDLEROW
+						
+							FORBIDDENTILE:	
+							MOV EAX,"X"
+							MOV [ESI],EAX
+							JMP NEXT
+
+						NOTMIDDLEROW:	;IF(ROW<=6 && ROW>=4)
+							CMP EDX,6 ;ROW>=6
+							JA CENTERCOLUMN
+							CMP EDX,4 ;ROW<=4
+							  ;PRINT BOARD ALL ROWS AND COLUMN
+							JB CENTERCOLUMN
+							BACK:
+							MOV [ESI],EAX
+							JMP NEXT
+							
+							CENTERCOLUMN:	;ELSE IF (ECX<=6 &&ECX>=4)
+							CMP ECX,6 ;COLUMN>=6
+							JA   FORBIDDENTILE
+							CMP ECX,4 ;COLUMN>=4
+							JB FORBIDDENTILE
+							JMP BACK
+						NEXT:
+						ADD ESI,4
+						LOOP L2
+			POP ECX
+			LOOP L1
+			;GENEARATING BOMBS AT RANDOM INDECES
+	CALL RANDOMIZE
+	MOV ECX, 4
+	L3:
+		MOV EAX,81
+		CALL RANDOMRANGE
+		MOV EBX,TYPE LEVEL_2_TABLE
+		MUL EBX
+		CMP LEVEL_2_TABLE[EAX],"X"
+		JE SKIP
+		MOV LEVEL_2_TABLE[EAX],'B'
+		JMP NO_INC
+		SKIP:
+		INC ECX
+		NO_INC:
+	LOOP L3
+RET
+LEVEL_2_TABLEINITIALIZATION ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_2_BOARDFILL PROC
+; RECEIVE : LEVEL_2_TABLE
+; DISCRIPTION : TO FILL THE BORAD WITH NUMBERS
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+   MOV EAX, BLACK + (WHITE*16)
+	MOV ESI,OFFSET LEVEL_2_TABLE
+	CALL SETTEXTCOLOR
+
+    MOV DH,3
+    MOV ECX, 9
+    L1:
+		MOV DL,36
+		PUSH ECX
+		MOV ECX, 9
+		L2:
+			CALL GOTOXY
+
+			MOV EAX,[ESI]
+			CMP EAX,"B"
+			JE BOMB
+			CMP EAX,"X"
+			JE NEXT
+			PUSH EAX
+			MOV EAX,BLACK + (WHITE*16)
+			CALL SETTEXTCOLOR
+
+			POP EAX
+			CALL WRITEDEC
+
+			JMP NEXT
+			BOMB:
+
+			PUSH EAX
+			MOV EAX,RED + (WHITE*16)
+			CALL SETTEXTCOLOR
+
+			POP EAX
+			CALL WRITECHAR
+			NEXT:
+	
+			ADD ESI,TYPE LEVEL_2_TABLE
+			ADD DL,9
+		LOOP L2
+		POP ECX
+		ADD DH,3
+	LOOP L1
+RET
+LEVEL_2_BOARDFILL ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_2_PAIRCHECK PROC
+; RECEIVE : TABLE
+; DISCRIPTION : TO CHECK THE WHOLE TABLE FOR ALL POSSIBLE COMBINATIONS
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+CONTINUE:	;UNTIL NO COMBINATION EXIST
+
+	MOV FOUND,0	;COMBINATION IS FOUND
+
+	MOV EAX,0
+	MOV EBX,0
+	MOV EDI,0
+	MOV EBP,0
+	MOV ECX,0
+	MOV ESI,0
+
+	WHOLETABLE:
+	CMP ESI, 320		;TRAVERSING THE WHOLE TABLE FOR COMBINATIONS
+	JG COMPLETED
+
+	MOV EAX,LEVEL_2_TABLE[ESI]
+	MOV EBP,LEVEL_2_TABLE[ESI+4]
+	MOV EDI,LEVEL_2_TABLE[ESI+8]
+	CMP EAX,"X"
+	JE NOPAIR
+	CMP EAX,EBP
+	JNE CHECKCOLUMN
+	CMP EAX,EDI
+	JNE CHECKCOLUMN
+
+	MOV ECX,36
+	MOV EAX,0
+	MOV EDX,0	;FOR DIVISION PURPOSE
+
+	MOV EAX,ESI
+	DIV ECX
+	MOV ECX, 24
+	CMP EDX,ECX	;NOT GOING OUT OF THE LEVEL2TABLE ROW WISE
+	;EDX HOLDS THE REMAINDER
+	JG OUTOFLEVEL2TABLE
+
+	MOV LEVEL_2_TABLE[ESI],0
+	MOV LEVEL_2_TABLE[ESI+4],0
+	MOV LEVEL_2_TABLE[ESI+8],0
+
+	PUSH ESI
+	CALL LEVEL_2_BOARDFILL
+	PUSH EAX
+	MOV EAX,LEVELNUMBER
+	MOV BL,2
+	MUL BL
+	SUB EAX,TYPE SCORE
+	ADD SCORE[EAX],3
+	POP EAX
+	POP ESI
+	MOV FOUND,1
+
+	OUTOFLEVEL2TABLE:
+	ADD ESI,TYPE LEVEL_2_TABLE
+	JMP WHOLETABLE
+
+	CHECKCOLUMN:
+	MOV EAX,LEVEL_2_TABLE[ESI]
+	MOV EBP,LEVEL_2_TABLE[ESI+36]
+	MOV EDI,LEVEL_2_TABLE[ESI+72]
+	
+	CMP EAX,EBP
+	JNE NOPAIR
+	CMP EAX,EDI
+	JNE NOPAIR
+
+	MOV LEVEL_2_TABLE[ESI],0
+	MOV LEVEL_2_TABLE[ESI+36],0
+	MOV LEVEL_2_TABLE[ESI+72],0
+
+	PUSH ESI
+	CALL LEVEL_2_BOARDFILL
+	POP ESI
+	PUSH EAX
+	MOV EAX,LEVELNUMBER
+	MOV BL,2
+	MUL BL
+	SUB EAX,TYPE SCORE
+	ADD SCORE[EAX],3
+	POP EAX
+	MOV FOUND,1
+	ADD ESI,TYPE LEVEL_2_TABLE
+	JMP WHOLETABLE
+
+	NOPAIR:
+	ADD  ESI,TYPE LEVEL_2_TABLE
+	JMP WHOLETABLE
+
+	COMPLETED:
+
+	MOV EAX ,1000
+	CALL DELAY
+
+	CALL LEVEL_2_MOVEDOWN
+	CALL LEVEL_2_BOARDFILL
+
+	MOV EAX ,1000
+	CALL DELAY
+
+	CALL LEVEL_2_GENERATENEWNUMBERS
+	CALL LEVEL_2_BOARDFILL
+
+	MOV EAX,FOUND
+	CMP EAX,0
+
+	JNE CONTINUE
+RET
+LEVEL_2_PAIRCHECK ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_2_GENERATENEWNUMBERS PROC
+; RECEIVE : LEVEL2TABLE
+; DISCRIPTION : TO TO REPLACE THE EMPTY TILES WITH NEW NUMBERS
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	MOV ESI, OFFSET LEVEL_2_TABLE
+	MOV ECX,9
+	L1:
+		PUSH ECX
+		MOV ECX,9
+		L2:
+			MOV EAX,5
+			CALL RANDOMRANGE
+			ADD EAX,1
+			MOV EBX,[ESI]
+			CMP EBX,0
+			JNE NEXT
+				MOV [ESI],EAX
+			NEXT:
+			ADD ESI,TYPE LEVEL_2_TABLE
+		LOOP L2
+	POP ECX
+	LOOP L1
+		
+RET
+LEVEL_2_GENERATENEWNUMBERS ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_2_MOVEDOWN PROC USES EAX EBX ECX EDX
+; RECEIVE : TABLE
+; DISCRIPTION : TO MOVE THE REMOVED PAIRS UP IN THE TABLE
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+
+	MOV EAX,0
+	MOV EBX,0
+	MOV ECX,0
+	MOV EDX,0
+
+	MOV ESI,320
+	CONTINUE:
+		CMP ESI,36
+	JL CHECKED
+		MOV EAX,LEVEL_2_TABLE[ESI]
+		MOV EBX,LEVEL_2_TABLE[ESI-36]
+			CMP EAX,0	;NON CONSECUTIVE ZEROS MOVEDOWN
+		JNE MOVEROWS
+			CMP EBX,0
+		JE MOVEROWS	
+			MOV EAX,0
+			MOV EAX,LEVEL_2_TABLE[ESI-36]				;SWAPPING
+			CMP EAX,'X'
+			JE ALLOWED
+			MOV LEVEL_2_TABLE[ESI-36],0
+			MOV LEVEL_2_TABLE[ESI],EAX
+		JMP	DONE
+			ALLOWED:
+			MOV EAX,ESI
+			SUB EAX,36
+			AGAIN1:
+			CMP EAX,36
+			JLE DONE
+			SUB EAX,36
+			CMP LEVEL_2_TABLE[EAX],'X'
+		JNE JUMPOUT
+			CMP EAX,36
+			JS OUTJUMP
+		JMP AGAIN1
+		JUMPOUT:
+			MOV EBX,0
+			MOV EBX,LEVEL_2_TABLE[EAX]					;SWAPPING
+			MOV LEVEL_2_TABLE[ESI],EBX
+			MOV LEVEL_2_TABLE[EAX],0
+		JMP DONE
+		MOVEROWS:
+			CMP EAX,0	;NON CONSECUTIVE ZEROS MOVEDOWN
+			JNE DONE
+			CMP EBX,0
+		JNE DONE	;CONSECUTIVE ZEROS MOVEDOWN
+			MOV EAX,ESI
+		AGAIN:
+			SUB EAX,36
+			CMP LEVEL_2_TABLE[EAX],0
+		JNE OUTJUMP
+			CMP EAX,36
+			JS OUTJUMP
+		JMP AGAIN
+		OUTJUMP:
+			MOV EBX,0
+			MOV EBX,LEVEL_2_TABLE[EAX]	
+			CMP EBX,'X'
+			JE ALLOWED1
+			MOV LEVEL_2_TABLE[ESI],EBX
+			MOV LEVEL_2_TABLE[EAX],0
+		JMP	DONE
+			ALLOWED1:
+			AGAIN2:
+			SUB EAX,36
+			CMP LEVEL_2_TABLE[EAX],'X'
+		JNE JUMPOUT1
+			CMP EAX,36
+			JS OUTJUMP
+		JMP AGAIN2
+		JUMPOUT1:
+		JMP DONE
+			MOV EBX,0
+			MOV EBX,LEVEL_2_TABLE[EAX]	
+			MOV LEVEL_2_TABLE[ESI],EBX
+			MOV LEVEL_2_TABLE[EAX],0
+		DONE:
+			SUB ESI,TYPE LEVEL_2_TABLE
+	JMP CONTINUE
+	CHECKED:
+RET
+LEVEL_2_MOVEDOWN ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+
+;______________________________________________________________________________
+LEVEL_2_SELECTEDTILE PROC
+; RECEIVE :X ,Y
+; DISCRIPTION : TO GENERATE A COLOR CHANGED BOX SHOWING SELECTION IN TABLE
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	PUSH EAX
+	MOV EAX, WHITE + (BLACK*16)
+	CALL SETTEXTCOLOR
+
+	MOV Y,3
+	MOV EAX,I
+	MOV BL,3
+	MUL BL
+	ADD Y,AL
+
+	MOV X,34
+	MOV EAX,J
+	MOV BL,9
+	MUL BL
+	ADD X,AL
+
+	MOV DH,Y
+	MOV ECX, 2
+    L1:
+		MOV DL,X
+		PUSH ECX
+		MOV ECX, 5
+		L2:
+			CALL GOTOXY
+			MOV AL,' '
+			CALL WRITECHAR
+			INC DL
+		LOOP L2
+	POP ECX
+	INC DH
+	LOOP L1
+	ADD X,2
+		MOV DL,X
+		MOV DH,Y
+		CALL GOTOXY
+		POP EAX
+		CMP AL,5
+		JG BOMB
+			CALL WRITEDEC
+			JMP NEXT
+		BOMB:
+			CALL WRITECHAR
+		NEXT:
+	RET;
+LEVEL_2_SELECTEDTILE ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_2_GETINDEX PROC USES  ESI EBX
+; RECEIVE :I ,J
+; DISCRIPTION : TO GET THE VALUE AT THE PROVIDED INDEX 
+; RETURN : EAX
+;------------------------------------------------------------------------------
+
+        MOV EAX, I
+        MOV ESI, J
+        MOV EBX, ROWSIZELEVEL_2
+        MUL EBX
+        MOV EBX, EAX
+        MOV EAX, LEVEL_2_TABLE[EBX + ESI * TYPE LEVEL_2_TABLE]
+
+RET
+LEVEL_2_GETINDEX ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_2_SWAP PROC USES ESI EBX
+; RECEIVE :I ,J
+; DISCRIPTION : TO GET THE VALUE AT THE PROVIDED INDEX AND SWAP IT WITH
+;				PREVIOUSLY SELECTED VALUE
+; RETURN : EAX
+;------------------------------------------------------------------------------
+	CALL LEVEL_2_GETINDEX
+	CALL LEVEL_2_SELECTEDTILE
+	PUSH EAX
+	MOV EAX, 1000
+	CALL DELAY
+	POP EAX
+
+
+	CMP EAX,'X'
+		JE NOSWAPFOUND
+	XCHG EAX,HOLDVALUE
+	CMP EAX,'X'
+		JE NOSWAPFOUND
+	CALL LEVEL_2_SELECTEDTILE
+	CMP EAX,'B'
+		JE BOMBFOUND
+	XCHG EAX,HOLDVALUE
+	CMP EAX,'B'
+		JE BOMBFOUND
+	
+	XCHG EAX,HOLDVALUE
+	PUSH EAX
+	MOV EAX, I
+    MOV ESI, J
+    MOV EBX, ROWSIZELEVEL_2
+    MUL EBX
+    MOV EBX, EAX
+	POP EAX
+    MOV LEVEL_2_TABLE[EBX + ESI * TYPE LEVEL_2_TABLE],EAX
+
+	MOV EAX,HOLDVALUE
+
+	PUSH EAX
+	MOV EAX, I1
+    MOV ESI, J1
+    MOV EBX, ROWSIZELEVEL_2
+    MUL EBX
+    MOV EBX, EAX
+	POP EAX
+    MOV LEVEL_2_TABLE[EBX + ESI * TYPE LEVEL_2_TABLE],EAX
+
+	JMP DONE
+	BOMBFOUND:
+
+		PUSH EAX
+		MOV EAX,1000
+		CALL DELAY
+		POP EAX
+
+		CALL LEVEL_2_BOMBBARDMENT
+		JMP DONE
+	NOSWAPFOUND:
+	INC MOVES
+	DONE:
+	CALL LEVEL_2_BOARDTILES
+	CALL LEVEL_2_BOARDFILL
+RET
+LEVEL_2_SWAP ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+LEVEL_2_INPUT PROC USES ECX EBX EAX
+; RECEIVE : INPUTBACKGROUND 
+; DISCRIPTION : TO MAKE A BOX TO SHOW THE INDEX PROVIDED AND GET ITS VALUE
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	
+INPUTAGAIN:
+	CALL LEVEL_2_BOARDTILES
+	CALL LEVEL_2_BOARDFILL
+	MOV EAX, WHITE + (BLACK*16)
+	CALL SETTEXTCOLOR 
+	MOV ECX,7
+	MOV DH,5
+	L1:
+		MOV DL,117
+		CALL GOTOXY
+		PUSH EDX
+		MOV EDX,OFFSET INPUTBACKGROUND
+		CALL WRITESTRING
+		POP EDX
+		INC DH
+	LOOP L1
+
+	MOV DL ,124	;SETTING CURSOR FOR INPUT STATEMENT
+	MOV DH ,7
+	CALL GOTOXY
+	MOV EDX,OFFSET INPUTSTATEMENT
+	CALL WRITESTRING
+
+	MOV EAX,0
+	CALL READCHAR
+	CALL WRITECHAR
+	MOV AH,0	;AH HOLDS THE ASCII OF CHAR IN HEX
+	SUB EAX,30H	;MAKING THE CHAR A DECIMAL NUMBER
+	CMP EAX,0
+	JL INVALIDINDEX
+	CMP EAX,8
+	JG INVALIDINDEX
+	MOV I,EAX
+	MOV I1,EAX
+	MOV EDX,OFFSET CLOSINGBRACKET
+	CALL WRITESTRING
+
+	MOV EDX,OFFSET OPENINGBRACKET
+	CALL WRITESTRING
+
+	CALL READCHAR
+	CALL WRITECHAR
+
+	MOV AH,0	;AH HOLDS THE ASCII OF CHAR IN HEX
+	SUB EAX,30H	;MAKING THE CHAR A DECIMAL NUMBER
+
+	CMP EAX,0
+	JL INVALIDINDEX
+
+	CMP EAX,8
+	JG INVALIDINDEX
+
+	MOV J,EAX
+	MOV J1,EAX
+
+	MOV EDX,OFFSET CLOSINGBRACKET
+	CALL WRITESTRING
+
+	CALL LEVEL_2_GETINDEX
+	CMP EAX,"X"
+	JE INVALIDINDEX
+	CALL LEVEL_2_SELECTEDTILE
+	MOV HOLDVALUE,EAX
+
+	MOV DL ,123	;SETTING CURSOR FOR INPUT STATEMENT
+	MOV DH ,9
+	CALL GOTOXY
+	MOV EDX,OFFSET MOVEMENT
+	CALL WRITESTRING
+	
+	MOV EAX,0
+	CALL READCHAR
+	CALL WRITECHAR
+
+	MOV EDX,OFFSET CLOSINGBRACKET
+	CALL WRITESTRING
+
+	CMP AL,"W"
+	JE UPSWAP
+	CMP AL,"S"
+	JE DOWNSWAP
+	CMP AL,"A"
+	JE RIGHTSWAP
+	CMP AL,"D"
+	JE LEFTSWAP
+	JMP INVALIDINDEX
+	UPSWAP:
+	SUB I,1
+	CMP I,0
+	JL INVALIDINDEX
+	CMP I,8
+	JG INVALIDINDEX
+	CALL LEVEL_2_GETINDEX
+	CMP EAX,"X"
+	JE INVALIDINDEX
+	JMP DONE
+	DOWNSWAP:
+	ADD I,1
+	CMP I,0
+	JL INVALIDINDEX
+	CMP I,8
+	JG INVALIDINDEX
+	CALL LEVEL_2_GETINDEX
+	CMP EAX,"X"
+	JE INVALIDINDEX
+	JMP DONE
+	RIGHTSWAP:
+	SUB J,1
+	CMP J,0
+	JL INVALIDINDEX
+	CMP J,8
+	JG INVALIDINDEX
+	CALL LEVEL_2_GETINDEX
+	CMP EAX,"X"
+	JE INVALIDINDEX
+	JMP DONE
+	LEFTSWAP:
+	ADD J,1
+	CMP J,0
+	JL INVALIDINDEX
+	CMP J,8
+	JG INVALIDINDEX
+	CALL LEVEL_2_GETINDEX
+	CMP EAX,"X"
+	JE INVALIDINDEX
+	JMP DONE
+
+	INVALIDINDEX:
+	MOV DL ,124	;SETTING CURSOR FOR INPUT STATEMENT
+	MOV DH ,8
+	CALL GOTOXY
+	MOV EDX,OFFSET INVALIDINPUT
+	CALL WRITESTRING
+	MOV EAX,1000
+	CALL DELAY
+	JMP INPUTAGAIN
+DONE:
+RET
+LEVEL_2_INPUT ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+;______________________________________________________________________________
+LEVEL_2_BOMBBARDMENT PROC
+; RECEIVE : I, J AND TABLE
+; DISCRIPTION : TO THE ELIMINATE THE VALUE SWAPPED WITH BOMB
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+
+	MOV EAX, I
+    MOV ESI, J
+    MOV EBX, ROWSIZELEVEL_2
+    MUL EBX
+    MOV EBX, EAX
+    MOV LEVEL_2_TABLE[EBX + ESI * TYPE LEVEL_2_TABLE],0
+
+	MOV EAX, I1
+    MOV ESI, J1
+    MOV EBX, ROWSIZELEVEL_2
+    MUL EBX
+    MOV EBX, EAX
+    MOV LEVEL_2_TABLE[EBX + ESI * TYPE LEVEL_2_TABLE],0
+
+	MOV ESI,OFFSET LEVEL_2_TABLE
+    MOV ECX, 9
+    L1:
+		PUSH ECX
+		MOV ECX, 9
+		L2:
+			MOV EAX,HOLDVALUE
+			MOV EBX,[ESI]
+			CMP EAX,EBX
+			JNE SWAPPEDVALUE
+				MOV EBX,0
+				MOV [ESI],EBX
+				MOV EAX,[ESI]
+				PUSH EAX
+				MOV EAX,LEVELNUMBER
+				MOV BL,2
+				MUL BL
+				SUB EAX,TYPE SCORE
+				ADD SCORE[EAX],3
+				POP EAX
+			SWAPPEDVALUE:
+		ADD ESI,TYPE LEVEL_2_TABLE
+		LOOP L2
+		POP ECX
+	LOOP L1
+	CALL LEVEL_2_MOVEDOWN
+RET
+LEVEL_2_BOMBBARDMENT ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+DATASVAING PROC
+; RECEIVE : SCORE ARRAY AND USER NAME
+; DISCRIPTION : TO SAVE THE USERNAME AND SCORE IN FILE
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	INVOKE CREATEFILE,ADDR FILENAME,GENERIC_READ + GENERIC_WRITE, DO_NOT_SHARE,NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,0
+	MOV FILEHANDLE,EAX
+	
+	INVOKE SETFILEPOINTER, FILEHANDLE,0,0,FILE_END
+	INVOKE WRITEFILE,FILEHANDLE,ADDR USERNAME, USERNAMECHAR , ADDR BYTEWRITTEN, NULL
+	INVOKE WRITEFILE,FILEHANDLE,ADDR ENDLINE, SIZEOF ENDLINE, ADDR BYTEWRITTEN, NULL
+
+	INVOKE WRITEFILE, FILEHANDLE,ADDR LEVEL1STATE, SIZEOF LEVEL1STATE , ADDR BYTEWRITTEN, NULL
+	INVOKE CONVERTNUMTOSTR,SCORE[0]
+	INVOKE WRITEFILE, FILEHANDLE,ADDR NUMSTR, SIZEOF NUMSTR , ADDR BYTEWRITTEN, NULL
+	INVOKE WRITEFILE,FILEHANDLE,ADDR ENDLINE, SIZEOF ENDLINE, ADDR BYTEWRITTEN, NULL
+
+	INVOKE WRITEFILE,FILEHANDLE,ADDR LEVEL2STATE, SIZEOF LEVEL2STATE  , ADDR BYTEWRITTEN, NULL
+
+	INVOKE CONVERTNUMTOSTR,SCORE[2]
+	INVOKE WRITEFILE, FILEHANDLE,ADDR NUMSTR, SIZEOF NUMSTR , ADDR BYTEWRITTEN, NULL
+	INVOKE WRITEFILE,FILEHANDLE,ADDR ENDLINE, SIZEOF ENDLINE, ADDR BYTEWRITTEN, NULL
+
+	INVOKE WRITEFILE,FILEHANDLE,ADDR LEVEL3STATE, SIZEOF LEVEL3STATE , ADDR BYTEWRITTEN, NULL
+
+	INVOKE CONVERTNUMTOSTR,SCORE[4]
+	INVOKE WRITEFILE, FILEHANDLE,ADDR NUMSTR, SIZEOF NUMSTR , ADDR BYTEWRITTEN, NULL
+	INVOKE WRITEFILE,FILEHANDLE,ADDR ENDLINE, SIZEOF ENDLINE, ADDR BYTEWRITTEN, NULL
+
+	CALL CHECKMAXSCORE
+RET
+DATASVAING ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+CHECKMAXSCORE PROC
+; RECEIVE : SCORE ARRAY 
+; DISCRIPTION : TO COMPARE AND SAVE THE HIGHEST SCORE
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	MOVZX EAX,SCORE[4]
+	MOVZX EBX,SCORE[2]
+	MOVZX ECX,SCORE[0]
+
+	CMP EAX,EBX	;COMPARING FIRST AND SECOND NUMBER
+	JG FIRSTPART	;IF TRUE MOVE TO NEXT COMPARISON
+	CMP EBX, ECX	;COMPARING FIRST AND THIRD NUMBER
+	JG SECONDPART	;IF TRUE MOVE TO NEXT COMPARISON
+	ECXISLARGEST:
+	MOV HIGHSCORE,CX
+	JMP DONE	;END OF PROGRAM JUMP <MEANS NO MORE EXECUTION>
+
+	FIRSTPART:	;IF ANY NUMBER IS LESS THAN FIRST NUMBER
+
+	CMP EAX,ECX
+	JL ECXISLARGEST
+	MOV HIGHSCORE,AX
+	JMP DONE
+
+	SECONDPART:
+	MOV HIGHSCORE,BX
+	DONE:
+
+	
+	INVOKE WRITEFILE,FILEHANDLE,ADDR HIGHSCORESTATE, SIZEOF HIGHSCORESTATE  , ADDR BYTEWRITTEN, NULL
+	INVOKE CONVERTNUMTOSTR,HIGHSCORE
+	INVOKE WRITEFILE, FILEHANDLE,ADDR NUMSTR, SIZEOF NUMSTR , ADDR BYTEWRITTEN, NULL
+	INVOKE WRITEFILE,FILEHANDLE,ADDR ENDLINE, SIZEOF ENDLINE, ADDR BYTEWRITTEN, NULL
+
+
+
+RET
+CHECKMAXSCORE ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+;______________________________________________________________________________
+CONVERTNUMTOSTR PROC, NUM:WORD 
+; RECEIVE : INTEGER NUMBER
+; DISCRIPTION : TO CONVERT PROVIDED INTEGER NUMBER IN STRING
+; RETURN : NOTHING
+;------------------------------------------------------------------------------
+	MOV ECX,LENGTHOF NUMSTR
+	MOV ESI,0
+	MAKEEMPTY:
+	MOV NUMSTR[ESI],0
+	ADD ESI,TYPE NUMSTR
+	LOOP MAKEEMPTY
+
+	MOV EDX,0
+	MOVZX EAX,NUM
+	CMP EAX,0
+	JE ZERO
+	MOV EBX,10
+	MOV EDI,LENGTHOF NUMSTR -1
+
+	LC1:
+		DIV BX
+		ADD DX,30H
+		MOV NUMSTR[EDI],DL
+		DEC EDI
+		MOV DX,0
+		CMP EAX,10
+		JL DONE
+		LOOP LC1
+		ZERO:
+		MOV ECX, LENGTHOF NUMSTR
+		MOV EDI,0
+		L1:
+		MOV BX,'0'
+		MOV NUMSTR[EDI],BL
+		INC EDI
+		LOOP L1
+		JMP RETURN
+		DONE:
+		ADD AX,30H
+		MOV NUMSTR[EDI],AL
+		RETURN:
+RET
+CONVERTNUMTOSTR ENDP
+;//////////////////////////////////////////////////////////////////////////////
+;------------------------------------------------------------------------------
+
+END MAIN
